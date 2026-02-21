@@ -1,0 +1,44 @@
+export interface KeyCrmShipping {
+  shipping_date_actual?: string;
+  tracking_code?: string;
+}
+
+export type OrderStatuses = 'new' | 'transferred_to_production';
+
+export interface KeyCrmOrderApi {
+  id: number;
+  created_at: string;
+  updated_at: string;
+  source: {
+    id: number;
+    name: string;
+  };
+  status: {
+    id: number;
+    name: string;
+    alias: OrderStatuses;
+  };
+  custom_fields: {
+    id: number;
+    uuid: string;
+    name: string;
+    type: 'select' | 'text';
+    value: string | string[];
+  }[];
+  total_price: number;
+  shipping: KeyCrmShipping;
+  products?: Array<{
+    id: number;
+    name: string;
+    quantity: number;
+    price: number;
+  }>;
+}
+
+export interface KeyCrmOrder {
+  id: number;
+  status: string;
+  tracking_code: string | null;
+  shipping_date: string | null;
+  child_name: string | null;
+}
