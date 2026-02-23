@@ -25,13 +25,13 @@ export interface KeyCrmOrderApi {
     type: 'select' | 'text';
     value: string | string[];
   }[];
-  total_price: number;
   shipping: KeyCrmShipping;
   products?: Array<{
     id: number;
     name: string;
     quantity: number;
     price: number;
+    picture: { thumbnail: string } | null;
   }>;
 }
 
@@ -41,4 +41,5 @@ export interface KeyCrmOrder {
   tracking_code: string | null;
   shipping_date: string | null;
   child_name: string | null;
+  product_image: string | null;
 }
