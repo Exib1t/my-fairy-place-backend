@@ -3,7 +3,10 @@ export interface KeyCrmShipping {
   tracking_code?: string;
 }
 
-export type OrderStatuses = 'new' | 'transferred_to_production';
+export type OrderStatuses =
+  | 'new'
+  | 'transferred_to_production'
+  | 'gotove_do_vidpravki';
 
 export interface KeyCrmOrderApi {
   id: number;

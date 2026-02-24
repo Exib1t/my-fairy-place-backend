@@ -15,11 +15,13 @@ export class KeyCrmService {
   private _statusesMap = {
     new: 1,
     transferred_to_production: 5,
+    gotove_do_vidpravki: 7,
   } as const satisfies Record<OrderStatuses, number>;
 
   private _statusesMapTitle = {
     new: 'Новий',
     transferred_to_production: 'Виробництво',
+    gotove_do_vidpravki: 'Вироблено',
   } as const satisfies Record<OrderStatuses, string>;
 
   async findAll() {
@@ -74,12 +76,17 @@ export class KeyCrmService {
   async getTimeline() {
     const API_KEY = this.configService.get<string>('keyCrmApi');
 
+    const today = new Date();
+    const currentDayOfWeek = today.getDay(); // 0 - воскресенье, 1 - понедельник, и т.д.
+    const daysUntilSunday = currentDayOfWeek === 0 ? 0 : 7 - currentDayOfWeek;
+
     const sDate = new Date().setDate(new Date().getDate() - 365);
-    const eDate = new Date().setDate(new Date().getDate() + 7);
+    const eDate = new Date().setDate(new Date().getDate() + daysUntilSunday);
 
     const statusesForFiltering = [
       this._statusesMap.new,
       this._statusesMap.transferred_to_production,
+      this._statusesMap.gotove_do_vidpravki,
     ].join(',');
 
     const startDate = new Date(sDate);
