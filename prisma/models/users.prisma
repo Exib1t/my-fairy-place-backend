@@ -1,8 +1,0 @@
-model users {
-  id         Int      @id() @default(autoincrement())
-  phone      String   @unique
-  totpSecret String // Секретный ключ для TOTP
-  isVerified Boolean  @default(false)
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-}
