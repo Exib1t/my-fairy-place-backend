@@ -1,4 +1,8 @@
-import { Injectable } from '@nestjs/common';
+import {
+  Injectable,
+  InternalServerErrorException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { HttpService } from '@nestjs/axios';
 import { ConfigService } from '@nestjs/config';
 import type { Configuration } from '../../core/config/configuration';
@@ -24,8 +28,8 @@ export class KeyCrmService {
     gotove_do_vidpravki: 'Вироблено',
   } as const satisfies Record<OrderStatuses, string>;
 
-  async findAll() {
-    const API_KEY = this.configService.get<string>('keyCrmApi');
+  async findAll(api_key?: string) {
+    const API_KEY = api_key ?? this.configService.get<string>('keyCrmApi');
 
     const sDate = new Date().setDate(new Date().getDate() - 365);
     const eDate = new Date().setDate(new Date().getDate());
@@ -50,7 +54,15 @@ export class KeyCrmService {
           },
         },
       ),
-    );
+    ).catch((reason) => {
+      const typedReason = reason as { status: number };
+
+      if (typedReason.status === 401) {
+        throw new UnauthorizedException('API key is invalid or expired');
+      }
+
+      throw new InternalServerErrorException(typedReason);
+    });
 
     const orders = response.data.data.filter((order) => {
       const shippingDate = order.shipping?.shipping_date_actual;
@@ -73,8 +85,8 @@ export class KeyCrmService {
       });
   }
 
-  async getTimeline() {
-    const API_KEY = this.configService.get<string>('keyCrmApi');
+  async getTimeline(api_key?: string) {
+    const API_KEY = api_key ?? this.configService.get<string>('keyCrmApi');
 
     const today = new Date();
     const currentDayOfWeek = today.getDay(); // 0 - воскресенье, 1 - понедельник, и т.д.
