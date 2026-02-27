@@ -46,3 +46,8 @@ export interface KeyCrmOrder {
   child_name: string | null;
   product_image: string | null;
 }
+
+export interface ChangeStatusDto {
+  order_id: number;
+  status_id: number;
+}

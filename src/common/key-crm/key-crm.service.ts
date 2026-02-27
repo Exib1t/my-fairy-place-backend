@@ -7,7 +7,12 @@ import { HttpService } from '@nestjs/axios';
 import { ConfigService } from '@nestjs/config';
 import type { Configuration } from '../../core/config/configuration';
 import { firstValueFrom } from 'rxjs';
-import { KeyCrmOrder, KeyCrmOrderApi, OrderStatuses } from './key-crm.models';
+import {
+  ChangeStatusDto,
+  KeyCrmOrder,
+  KeyCrmOrderApi,
+  OrderStatuses,
+} from './key-crm.models';
 
 @Injectable()
 export class KeyCrmService {
@@ -137,6 +142,34 @@ export class KeyCrmService {
           new Date(b.shipping_date).getTime()
         );
       });
+  }
+
+  async changeStatus(changeDto: ChangeStatusDto, api_key?: string) {
+    const API_KEY = api_key ?? this.configService.get<string>('keyCrmApi');
+
+    const response = await firstValueFrom(
+      this.httpService.put<{ data: KeyCrmOrderApi[] }>(
+        `https://openapi.keycrm.app/v1/order/${changeDto.order_id}`,
+        {
+          status_id: changeDto.status_id,
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${API_KEY}`,
+          },
+        },
+      ),
+    ).catch((reason) => {
+      const typedReason = reason as { status: number };
+
+      if (typedReason.status === 401) {
+        throw new UnauthorizedException('API key is invalid or expired');
+      }
+
+      throw new InternalServerErrorException(typedReason);
+    });
+
+    return response.data;
   }
 
   private transformToResource(order: KeyCrmOrderApi): KeyCrmOrder {

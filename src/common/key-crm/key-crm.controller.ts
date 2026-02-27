@@ -1,5 +1,6 @@
-import { Controller, Get, Headers } from '@nestjs/common';
+import { Body, Controller, Get, Headers, Post } from '@nestjs/common';
 import { KeyCrmService } from './key-crm.service';
+import type { ChangeStatusDto } from './key-crm.models';
 
 @Controller('key-crm/orders')
 export class KeyCrmController {
@@ -17,5 +18,15 @@ export class KeyCrmController {
     const api_key = authHeader.split(' ')[1];
 
     return this.keyCrmService.getTimeline(api_key);
+  }
+
+  @Post('change-status')
+  changeStatus(
+    @Headers('Authorization') authHeader: string,
+    @Body() changeDto: ChangeStatusDto,
+  ) {
+    const api_key = authHeader.split(' ')[1];
+
+    return this.keyCrmService.changeStatus(changeDto, api_key);
   }
 }
