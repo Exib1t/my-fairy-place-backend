@@ -34,8 +34,14 @@ export class KeyCrmService {
     gotove_do_vidpravki: 'Вироблено',
   } as const satisfies Record<OrderStatuses, string>;
 
-  async findAll(api_key?: string) {
-    const API_KEY = api_key ?? this.configService.get<string>('keyCrmApi');
+  async findAll(api_key: string) {
+    const ADMIN_API_KEY = this.configService.get<string>('adminApiKey');
+
+    if (api_key !== ADMIN_API_KEY) {
+      throw new UnauthorizedException('API key is invalid or expired');
+    }
+
+    const API_KEY = this.configService.get<string>('keyCrmApi');
 
     const sDate = new Date().setDate(new Date().getDate() - 365);
     const eDate = new Date().setDate(new Date().getDate());
@@ -91,8 +97,14 @@ export class KeyCrmService {
       });
   }
 
-  async getTimeline(api_key?: string) {
-    const API_KEY = api_key ?? this.configService.get<string>('keyCrmApi');
+  async getTimeline(api_key: string) {
+    const ADMIN_API_KEY = this.configService.get<string>('adminApiKey');
+
+    if (api_key !== ADMIN_API_KEY) {
+      throw new UnauthorizedException('API key is invalid or expired');
+    }
+
+    const API_KEY = this.configService.get<string>('keyCrmApi');
 
     const today = new Date();
     const currentDayOfWeek = today.getDay(); // 0 - воскресенье, 1 - понедельник, и т.д.
@@ -146,7 +158,14 @@ export class KeyCrmService {
   }
 
   async getExtendedTimeline(api_key: string) {
-    const API_KEY = api_key ?? this.configService.get<string>('keyCrmApi');
+    const ADMIN_API_KEY = this.configService.get<string>('adminApiKey');
+    const MANAGER_API_KEY = this.configService.get<string>('managerApiKey');
+
+    if (api_key !== ADMIN_API_KEY && api_key !== MANAGER_API_KEY) {
+      throw new UnauthorizedException('API key is invalid or expired');
+    }
+
+    const API_KEY = this.configService.get<string>('keyCrmApi');
 
     const sDate = new Date().setDate(new Date().getDate() - 365);
     const eDate = new Date().setDate(new Date().getDate() + 14);
@@ -195,8 +214,14 @@ export class KeyCrmService {
       });
   }
 
-  async changeStatus(changeDto: ChangeStatusDto, api_key?: string) {
-    const API_KEY = api_key ?? this.configService.get<string>('keyCrmApi');
+  async changeStatus(changeDto: ChangeStatusDto, api_key: string) {
+    const ADMIN_API_KEY = this.configService.get<string>('adminApiKey');
+
+    if (api_key !== ADMIN_API_KEY) {
+      throw new UnauthorizedException('API key is invalid or expired');
+    }
+
+    const API_KEY = this.configService.get<string>('keyCrmApi');
 
     const response = await firstValueFrom(
       this.httpService.put<{ data: KeyCrmOrderApi[] }>(
