@@ -12,10 +12,7 @@ export interface KeyCrmOrderApi {
   id: number;
   created_at: string;
   updated_at: string;
-  source: {
-    id: number;
-    name: string;
-  };
+  source_id: number;
   status: {
     id: number;
     name: string;
@@ -45,6 +42,7 @@ export interface KeyCrmOrder {
   shipping_date: string | null;
   child_name: string | null;
   product_image: string | null;
+  source_name: string;
 }
 
 export interface ChangeStatusDto {

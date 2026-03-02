@@ -13,6 +13,7 @@ import {
   KeyCrmOrderApi,
   OrderStatuses,
 } from './key-crm.models';
+import { ORDER_SOURCES_MAP } from './constants/source.constants';
 
 @Injectable()
 export class KeyCrmService {
@@ -187,6 +188,7 @@ export class KeyCrmService {
       shipping_date: order.shipping.shipping_date_actual ?? null,
       child_name: childName ?? null,
       product_image: order.products?.[0]?.picture?.thumbnail ?? null,
+      source_name: ORDER_SOURCES_MAP[order.source_id]?.name,
     };
   }
 }
