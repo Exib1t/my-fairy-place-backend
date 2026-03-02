@@ -145,6 +145,56 @@ export class KeyCrmService {
       });
   }
 
+  async getExtendedTimeline(api_key: string) {
+    const API_KEY = api_key ?? this.configService.get<string>('keyCrmApi');
+
+    const sDate = new Date().setDate(new Date().getDate() - 365);
+    const eDate = new Date().setDate(new Date().getDate() + 14);
+
+    const statusesForFiltering = [
+      this._statusesMap.new,
+      this._statusesMap.transferred_to_production,
+      this._statusesMap.gotove_do_vidpravki,
+    ].join(',');
+
+    const startDate = new Date(sDate);
+    startDate.setHours(0, 0, 0, 0);
+
+    const endDate = new Date(eDate);
+    endDate.setHours(23, 59, 59, 999);
+
+    const response = await firstValueFrom(
+      this.httpService.get<{ data: KeyCrmOrderApi[] }>(
+        `https://openapi.keycrm.app/v1/order?limit=50&include=shipping,status,customFields,products&filter[status_id]=${statusesForFiltering}&[shipping_between]=${startDate.toISOString()}, ${endDate.toISOString()}`,
+        {
+          headers: {
+            Authorization: `Bearer ${API_KEY}`,
+          },
+        },
+      ),
+    );
+
+    const orders = response.data.data.filter((order) => {
+      const shippingDate = order.shipping?.shipping_date_actual;
+      if (!shippingDate) return false;
+
+      const date = new Date(shippingDate);
+
+      return date >= startDate && date <= endDate;
+    });
+
+    return orders
+      .map((order) => this.transformToResource(order))
+      .sort((a, b) => {
+        if (!a.shipping_date || !b.shipping_date) return 0;
+
+        return (
+          new Date(a.shipping_date).getTime() -
+          new Date(b.shipping_date).getTime()
+        );
+      });
+  }
+
   async changeStatus(changeDto: ChangeStatusDto, api_key?: string) {
     const API_KEY = api_key ?? this.configService.get<string>('keyCrmApi');
 

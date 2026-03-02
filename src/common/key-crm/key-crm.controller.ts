@@ -20,6 +20,13 @@ export class KeyCrmController {
     return this.keyCrmService.getTimeline(api_key);
   }
 
+  @Get('extended-timeline')
+  getExtendedTimeline(@Headers('Authorization') authHeader: string) {
+    const api_key = authHeader.split(' ')[1];
+
+    return this.keyCrmService.getExtendedTimeline(api_key);
+  }
+
   @Post('change-status')
   changeStatus(
     @Headers('Authorization') authHeader: string,
