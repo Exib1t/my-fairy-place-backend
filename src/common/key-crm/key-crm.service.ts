@@ -59,7 +59,7 @@ export class KeyCrmService {
 
     const response = await firstValueFrom(
       this.httpService.get<{ data: KeyCrmOrderApi[] }>(
-        `https://openapi.keycrm.app/v1/order?limit=50&include=shipping,status,customFields,products&filter[status_id]=${statusesForFiltering}&[shipping_between]=${startDate.toISOString()}, ${endDate.toISOString()}`,
+        `https://openapi.keycrm.app/v1/order?limit=50&include=shipping,status,customFields,products,attachments.file&filter[status_id]=${statusesForFiltering}&[shipping_between]=${startDate.toISOString()}, ${endDate.toISOString()}`,
         {
           headers: {
             Authorization: `Bearer ${API_KEY}`,
@@ -127,7 +127,7 @@ export class KeyCrmService {
 
     const response = await firstValueFrom(
       this.httpService.get<{ data: KeyCrmOrderApi[] }>(
-        `https://openapi.keycrm.app/v1/order?limit=50&include=shipping,status,customFields,products&filter[status_id]=${statusesForFiltering}&[shipping_between]=${startDate.toISOString()}, ${endDate.toISOString()}`,
+        `https://openapi.keycrm.app/v1/order?limit=50&include=shipping,status,customFields,products,attachments.file&filter[status_id]=${statusesForFiltering}&[shipping_between]=${startDate.toISOString()}, ${endDate.toISOString()}`,
         {
           headers: {
             Authorization: `Bearer ${API_KEY}`,
@@ -184,7 +184,7 @@ export class KeyCrmService {
 
     const response = await firstValueFrom(
       this.httpService.get<{ data: KeyCrmOrderApi[] }>(
-        `https://openapi.keycrm.app/v1/order?limit=50&include=shipping,status,customFields,products&filter[status_id]=${statusesForFiltering}&[shipping_between]=${startDate.toISOString()}, ${endDate.toISOString()}`,
+        `https://openapi.keycrm.app/v1/order?limit=50&include=shipping,status,customFields,products,attachments.file&filter[status_id]=${statusesForFiltering}&[shipping_between]=${startDate.toISOString()}, ${endDate.toISOString()}`,
         {
           headers: {
             Authorization: `Bearer ${API_KEY}`,
@@ -248,6 +248,31 @@ export class KeyCrmService {
     return response.data;
   }
 
+  async getOrder(api_key: string, order_id: number) {
+    const ADMIN_API_KEY = this.configService.get<string>('adminApiKey');
+
+    if (api_key !== ADMIN_API_KEY) {
+      throw new UnauthorizedException('API key is invalid or expired');
+    }
+
+    const API_KEY = this.configService.get<string>('keyCrmApi');
+
+    const response = await firstValueFrom(
+      this.httpService.get<KeyCrmOrderApi>(
+        `https://openapi.keycrm.app/v1/order/${order_id}?limit=50&include=shipping,status,customFields,products,attachments.file`,
+        {
+          headers: {
+            Authorization: `Bearer ${API_KEY}`,
+          },
+        },
+      ),
+    );
+
+    const order = response.data;
+
+    return this.transformToResource(order);
+  }
+
   private transformToResource(order: KeyCrmOrderApi): KeyCrmOrder {
     const statusTitle = this._statusesMapTitle[order.status.alias];
     const customField = order.custom_fields.find(
@@ -264,6 +289,25 @@ export class KeyCrmService {
       child_name: childName ?? null,
       product_image: order.products?.[0]?.picture?.thumbnail ?? null,
       source_name: ORDER_SOURCES_MAP[order.source_id]?.name,
+      custom_fields: order.custom_fields.map((field) => ({
+        name: field.name,
+        value:
+          typeof field.value === 'string'
+            ? field.value
+            : field.value.join(', '),
+      })),
+      attachments: order.attachments.map((item) => item.file.url),
+      products:
+        order.products?.map((product) => {
+          return {
+            id: product.id,
+            name: product.name,
+            comment: product.comment,
+            quantity: product.quantity,
+            thumbnail: product.picture?.thumbnail ?? null,
+            properties: product.properties,
+          };
+        }) ?? [],
     };
   }
 }

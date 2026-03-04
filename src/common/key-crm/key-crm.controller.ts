@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Headers, Post } from '@nestjs/common';
+import { Body, Controller, Get, Headers, Param, Post } from '@nestjs/common';
 import { KeyCrmService } from './key-crm.service';
 import type { ChangeStatusDto } from './key-crm.models';
 
@@ -35,5 +35,14 @@ export class KeyCrmController {
     const api_key = authHeader.split(' ')[1];
 
     return this.keyCrmService.changeStatus(changeDto, api_key);
+  }
+  @Get(':order_id')
+  findOne(
+    @Headers('Authorization') authHeader: string,
+    @Param('order_id') order_id: number,
+  ) {
+    const api_key = authHeader.split(' ')[1];
+
+    return this.keyCrmService.getOrder(api_key, +order_id);
   }
 }
