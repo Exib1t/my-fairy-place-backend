@@ -281,6 +281,8 @@ export class KeyCrmService {
 
     const childName = customField?.value as string | undefined;
 
+    console.log(order);
+
     return {
       id: order.id,
       status: statusTitle,
@@ -294,7 +296,9 @@ export class KeyCrmService {
         value:
           typeof field.value === 'string'
             ? field.value
-            : field.value.join(', '),
+            : field.value
+              ? field.value.join(', ')
+              : '',
       })),
       attachments: order.attachments.map((item) => item.file.url),
       products:
