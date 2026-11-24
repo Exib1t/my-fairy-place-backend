@@ -34,6 +34,9 @@ export class KeyCrmService {
     gotove_do_vidpravki: 'Вироблено',
   } as const satisfies Record<OrderStatuses, string>;
 
+  private readonly _pageSize = 50; // KeyCRM max per page
+  private readonly _maxOrders = 300;
+
   async findAll(api_key: string) {
     const ADMIN_API_KEY = this.configService.get<string>('adminApiKey');
 
@@ -41,60 +44,10 @@ export class KeyCrmService {
       throw new UnauthorizedException('API key is invalid or expired');
     }
 
-    const API_KEY = this.configService.get<string>('keyCrmApi');
-
-    const sDate = new Date().setDate(new Date().getDate() - 365);
-    const eDate = new Date().setDate(new Date().getDate());
-
-    const statusesForFiltering = [
-      this._statusesMap.new,
-      this._statusesMap.transferred_to_production,
-    ].join(',');
-
-    const startDate = new Date(sDate);
-    startDate.setHours(0, 0, 0, 0);
-
-    const endDate = new Date(eDate);
-    endDate.setHours(23, 59, 59, 999);
-
-    const response = await firstValueFrom(
-      this.httpService.get<{ data: KeyCrmOrderApi[] }>(
-        `https://openapi.keycrm.app/v1/order?limit=50&include=shipping,status,customFields,products,attachments.file&filter[status_id]=${statusesForFiltering}&[shipping_between]=${startDate.toISOString()}, ${endDate.toISOString()}`,
-        {
-          headers: {
-            Authorization: `Bearer ${API_KEY}`,
-          },
-        },
-      ),
-    ).catch((reason) => {
-      const typedReason = reason as { status: number };
-
-      if (typedReason.status === 401) {
-        throw new UnauthorizedException('API key is invalid or expired');
-      }
-
-      throw new InternalServerErrorException(typedReason);
-    });
-
-    const orders = response.data.data.filter((order) => {
-      const shippingDate = order.shipping?.shipping_date_actual;
-      if (!shippingDate) return false;
-
-      const date = new Date(shippingDate);
-
-      return date >= startDate && date <= endDate;
-    });
-
-    return orders
-      .map((order) => this.transformToResource(order))
-      .sort((a, b) => {
-        if (!a.shipping_date || !b.shipping_date) return 0;
-
-        return (
-          new Date(a.shipping_date).getTime() -
-          new Date(b.shipping_date).getTime()
-        );
-      });
+    return this.fetchOrders(
+      [this._statusesMap.new, this._statusesMap.transferred_to_production],
+      0,
+    );
   }
 
   async getTimeline(api_key: string) {
@@ -104,57 +57,10 @@ export class KeyCrmService {
       throw new UnauthorizedException('API key is invalid or expired');
     }
 
-    const API_KEY = this.configService.get<string>('keyCrmApi');
-
-    const today = new Date();
-    const currentDayOfWeek = today.getDay(); // 0 - воскресенье, 1 - понедельник, и т.д.
+    const currentDayOfWeek = new Date().getDay(); // 0 - воскресенье, 1 - понедельник, и т.д.
     const daysUntilSunday = currentDayOfWeek === 0 ? 0 : 7 - currentDayOfWeek;
 
-    const sDate = new Date().setDate(new Date().getDate() - 365);
-    const eDate = new Date().setDate(new Date().getDate() + daysUntilSunday);
-
-    const statusesForFiltering = [
-      this._statusesMap.new,
-      this._statusesMap.transferred_to_production,
-      this._statusesMap.gotove_do_vidpravki,
-    ].join(',');
-
-    const startDate = new Date(sDate);
-    startDate.setHours(0, 0, 0, 0);
-
-    const endDate = new Date(eDate);
-    endDate.setHours(23, 59, 59, 999);
-
-    const response = await firstValueFrom(
-      this.httpService.get<{ data: KeyCrmOrderApi[] }>(
-        `https://openapi.keycrm.app/v1/order?limit=50&include=shipping,status,customFields,products,attachments.file&filter[status_id]=${statusesForFiltering}&[shipping_between]=${startDate.toISOString()}, ${endDate.toISOString()}`,
-        {
-          headers: {
-            Authorization: `Bearer ${API_KEY}`,
-          },
-        },
-      ),
-    );
-
-    const orders = response.data.data.filter((order) => {
-      const shippingDate = order.shipping?.shipping_date_actual;
-      if (!shippingDate) return false;
-
-      const date = new Date(shippingDate);
-
-      return date >= startDate && date <= endDate;
-    });
-
-    return orders
-      .map((order) => this.transformToResource(order))
-      .sort((a, b) => {
-        if (!a.shipping_date || !b.shipping_date) return 0;
-
-        return (
-          new Date(a.shipping_date).getTime() -
-          new Date(b.shipping_date).getTime()
-        );
-      });
+    return this.fetchOrders(Object.values(this._statusesMap), daysUntilSunday);
   }
 
   async getExtendedTimeline(api_key: string) {
@@ -165,44 +71,67 @@ export class KeyCrmService {
       throw new UnauthorizedException('API key is invalid or expired');
     }
 
+    return this.fetchOrders(Object.values(this._statusesMap), 14);
+  }
+
+  /**
+   * Orders in the given statuses shipping between a year ago and
+   * `daysAhead` days from now, sorted by shipping date. Pages through
+   * KeyCRM (50 per page) up to `_maxOrders`.
+   */
+  private async fetchOrders(
+    statuses: number[],
+    daysAhead: number,
+  ): Promise<KeyCrmOrder[]> {
     const API_KEY = this.configService.get<string>('keyCrmApi');
 
-    const sDate = new Date().setDate(new Date().getDate() - 365);
-    const eDate = new Date().setDate(new Date().getDate() + 14);
-
-    const statusesForFiltering = [
-      this._statusesMap.new,
-      this._statusesMap.transferred_to_production,
-      this._statusesMap.gotove_do_vidpravki,
-    ].join(',');
-
-    const startDate = new Date(sDate);
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - 365);
     startDate.setHours(0, 0, 0, 0);
 
-    const endDate = new Date(eDate);
+    const endDate = new Date();
+    endDate.setDate(endDate.getDate() + daysAhead);
     endDate.setHours(23, 59, 59, 999);
 
-    const response = await firstValueFrom(
-      this.httpService.get<{ data: KeyCrmOrderApi[] }>(
-        `https://openapi.keycrm.app/v1/order?limit=50&include=shipping,status,customFields,products,attachments.file&filter[status_id]=${statusesForFiltering}&[shipping_between]=${startDate.toISOString()}, ${endDate.toISOString()}`,
-        {
-          headers: {
-            Authorization: `Bearer ${API_KEY}`,
+    const raw: KeyCrmOrderApi[] = [];
+
+    // ponytail: sequential pages, up to 6 requests per call; parallelize or
+    // cache if latency / KeyCRM rate limit (60 req/min) becomes a problem.
+    for (let page = 1; raw.length < this._maxOrders; page++) {
+      const response = await firstValueFrom(
+        this.httpService.get<{ data: KeyCrmOrderApi[] }>(
+          `https://openapi.keycrm.app/v1/order?limit=${this._pageSize}&page=${page}&include=shipping,status,customFields,products,attachments.file&filter[status_id]=${statuses.join(',')}&filter[shipping_between]=${startDate.toISOString()}, ${endDate.toISOString()}`,
+          {
+            headers: {
+              Authorization: `Bearer ${API_KEY}`,
+            },
           },
-        },
-      ),
-    );
+        ),
+      ).catch((reason) => {
+        const typedReason = reason as { status: number };
 
-    const orders = response.data.data.filter((order) => {
-      const shippingDate = order.shipping?.shipping_date_actual;
-      if (!shippingDate) return false;
+        if (typedReason.status === 401) {
+          throw new UnauthorizedException('API key is invalid or expired');
+        }
 
-      const date = new Date(shippingDate);
+        throw new InternalServerErrorException(typedReason);
+      });
 
-      return date >= startDate && date <= endDate;
-    });
+      const pageOrders = response.data.data;
+      raw.push(...pageOrders);
 
-    return orders
+      if (pageOrders.length < this._pageSize) break;
+    }
+
+    return raw
+      .filter((order) => {
+        const shippingDate = order.shipping?.shipping_date_actual;
+        if (!shippingDate) return false;
+
+        const date = new Date(shippingDate);
+
+        return date >= startDate && date <= endDate;
+      })
       .map((order) => this.transformToResource(order))
       .sort((a, b) => {
         if (!a.shipping_date || !b.shipping_date) return 0;
